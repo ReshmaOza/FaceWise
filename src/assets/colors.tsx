@@ -1,0 +1,12 @@
+export const whiteBackgeoundColor = '#fff';
+export const blackColor = '#000';
+export const darkGrayColor = '#333';
+export const lightGrayColor = '#ccc';
+export const lightBlueColor = '#007aff';
+export const darkBlueColor = '#005fb2';
+export const lightGreenColor = '#00c853';
+export const darkGreenColor = '#00a64f';
+export const lightRedColor = '#ff3b30';
+export const darkRedColor = '#e13432';
+export const lightYellowColor = '#ffcc00';
+export const darkYellowColor = '#cca300';
