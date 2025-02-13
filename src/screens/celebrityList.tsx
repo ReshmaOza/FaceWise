@@ -1,6 +1,5 @@
 import React, {useState} from 'react';
 import {
-  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -22,6 +21,7 @@ import {
 } from '../assets/colors';
 import CelebritieJson from '../assets/jsonFiles/celebrities.json';
 import DeleteComponent from '../componants/deleteComponet';
+import ValidationAlert from '../componants/ValidationAlert';
 import Icon from '../components/Icon';
 import {GENDER_OPTIONS, SPACING} from '../constants/styles';
 import {calculateAge} from '../utils/helper';
@@ -50,47 +50,77 @@ const CelebrityList = () => {
   const [editableData, setEditableData] = useState<{
     [key: number]: Partial<Celebrity>;
   }>({});
+  const [validationVisible, setValidationVisible] = useState(false);
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
 
   const handleEditChange = (
     id: number,
     field: keyof Celebrity,
     value: string,
   ) => {
-    setEditableData(prev => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: value,
-      },
-    }));
+    setEditableData(prev => {
+      // Find the original celebrity data
+      const originalItem = celebrities.find(c => c.id === id);
+      if (!originalItem) return prev;
+
+      return {
+        ...prev,
+        [id]: {
+          ...originalItem, // Use originalItem instead of item
+          ...prev[id],
+          [field]: value,
+        },
+      };
+    });
   };
 
-  const validateEdit = (data: Partial<Celebrity>) => {
-    if (!data.first?.trim() || !data.last?.trim()) return false;
-    if (!data.country?.trim() || !/^[a-zA-Z\s]*$/.test(data.country))
-      return false;
-    if (!data.description?.trim()) return false;
-    if (!GENDER_OPTIONS.includes(data.gender?.toLowerCase() || ''))
-      return false;
+  const validateField = (field: keyof Celebrity, value: string | undefined) => {
+    if (!value?.trim()) return false;
 
-    if (data.dob) {
-      const date = new Date(data.dob);
-      const today = new Date();
-      if (isNaN(date.getTime()) || date > today) return false;
+    switch (field) {
+      case 'first':
+      case 'last':
+        return value.trim().length >= 2;
+      case 'country':
+        return /^[a-zA-Z\s]*$/.test(value);
+      case 'gender':
+        return GENDER_OPTIONS.map(opt => opt.toLowerCase()).includes(
+          value.toLowerCase(),
+        );
+      case 'dob':
+        const date = new Date(value);
+        const today = new Date();
+        return !isNaN(date.getTime()) && date <= today;
+      case 'description':
+        return value.trim().length >= 10;
+      default:
+        return true;
     }
-
-    return true;
   };
 
   const saveEdit = (id: number) => {
     const newData = editableData[id];
-    if (!validateEdit(newData)) {
-      Alert.alert(
-        'Invalid Data',
-        'Please check all fields are filled correctly',
-      );
+    if (!newData) return;
+
+    const changedFields = Object.keys(newData).filter(key => {
+      const field = key as keyof Celebrity;
+      return newData[field] !== celebrities.find(c => c.id === id)?.[field];
+    });
+
+    const invalid = changedFields.filter(
+      field =>
+        !validateField(
+          field as keyof Celebrity,
+          newData[field as keyof Celebrity],
+        ),
+    );
+
+    if (invalid.length > 0) {
+      setInvalidFields(invalid);
+      setValidationVisible(true);
       return;
     }
+
     setCelebrities(prevData =>
       prevData.map(item => (item.id === id ? {...item, ...newData} : item)),
     );
@@ -114,13 +144,12 @@ const CelebrityList = () => {
     const isEditing = editingId === item.id;
     const age = calculateAge(item.dob);
     const isAdult = age >= 18;
-    const editData = editableData[item.id] || item;
-    const isChanged =
-      editData.first !== item.first ||
-      editData.last !== item.last ||
-      editData.gender !== item.gender ||
-      editData.country !== item.country ||
-      editData.description !== item.description;
+    const editData = editableData[item.id] || {...item};
+
+    const isChanged = Object.keys(editData).some(key => {
+      const field = key as keyof Celebrity;
+      return editData[field] !== item[field];
+    });
 
     return (
       <View style={styles.bodyContainer}>
@@ -154,9 +183,7 @@ const CelebrityList = () => {
                     value={editData.dob}
                     placeholder="YYYY-MM-DD"
                     onChangeText={text => {
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
-                        handleEditChange(item.id, 'dob', text);
-                      }
+                      handleEditChange(item.id, 'dob', text);
                     }}
                     keyboardType="numbers-and-punctuation"
                   />
@@ -200,7 +227,9 @@ const CelebrityList = () => {
                 <TextInput
                   style={styles.descriptionInput}
                   value={editData.description}
-                  multiline
+                  multiline={true}
+                  numberOfLines={4}
+                  textAlignVertical="top"
                   onChangeText={text =>
                     handleEditChange(item.id, 'description', text)
                   }
@@ -287,6 +316,11 @@ const CelebrityList = () => {
         style={{marginBottom: 20, marginTop: 20}}
         contentContainerStyle={{alignItems: 'center'}}
       />
+      <ValidationAlert
+        visible={validationVisible}
+        onClose={() => setValidationVisible(false)}
+        invalidFields={invalidFields}
+      />
       <DeleteComponent
         visible={modalVisible}
         onCancel={() => setModalVisible(false)}
@@ -360,7 +394,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   infoColumn: {
-    alignItems: 'center',
     width: '30%',
   },
   input: {
@@ -369,22 +402,17 @@ const styles = StyleSheet.create({
     borderColor: darkGrayColor,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
-    width: '90%',
-    minWidth: 80,
-    marginHorizontal: SPACING.xs,
+    maxHeight: 40,
     textAlign: 'center',
   },
   descriptionInput: {
     borderWidth: 1,
     borderRadius: SPACING.xs,
     borderColor: darkGrayColor,
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    minHeight: 100,
-    maxHeight: 200,
-    width: '95%',
-    textAlignVertical: 'top',
-    marginTop: SPACING.xs,
+    alignItems: 'flex-start',
+    padding: 10,
+    width: '96%',
+    maxWidth: '96%',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -405,7 +433,7 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: SPACING.md,
-    width: '100%',
+    //width: '100%',
     alignItems: 'center',
   },
 });
