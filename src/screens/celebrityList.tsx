@@ -32,7 +32,7 @@ interface Celebrity {
 const CelebrityList = () => {
   const [celebrities, setCelebrities] = useState<Celebrity[]>(CelebritieJson);
   const [editingId, setEditingId] = useState(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
 
   //Calulate age of celebrity if is an adult
