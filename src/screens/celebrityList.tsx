@@ -12,10 +12,10 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {
   blackColor,
-  darkBlueColor,
   darkGrayColor,
   darkGreenColor,
   darkRedColor,
+  lightBlueColor,
   lightGrayColor,
   whiteBackgeoundColor,
 } from '../assets/colors';
@@ -48,7 +48,7 @@ const CelebrityList = () => {
   );
   const [modalVisible, setModalVisible] = useState(false);
   const [editableData, setEditableData] = useState<{
-    [key: number]: Partial<Celebrity>;
+    [key: string]: Partial<Celebrity>;
   }>({});
   const [validationVisible, setValidationVisible] = useState(false);
   const [invalidFields, setInvalidFields] = useState<string[]>([]);
@@ -59,15 +59,14 @@ const CelebrityList = () => {
     value: string,
   ) => {
     setEditableData(prev => {
-      // Find the original celebrity data
       const originalItem = celebrities.find(c => c.id === id);
       if (!originalItem) return prev;
 
       return {
         ...prev,
-        [id]: {
-          ...originalItem, // Use originalItem instead of item
-          ...prev[id],
+        [id.toString()]: {
+          ...originalItem,
+          ...prev[id.toString()],
           [field]: value,
         },
       };
@@ -99,7 +98,7 @@ const CelebrityList = () => {
   };
 
   const saveEdit = (id: number) => {
-    const newData = editableData[id];
+    const newData = editableData[id.toString()];
     if (!newData) return;
 
     const changedFields = Object.keys(newData).filter(key => {
@@ -144,24 +143,64 @@ const CelebrityList = () => {
     const isEditing = editingId === item.id;
     const age = calculateAge(item.dob);
     const isAdult = age >= 18;
-    const editData = editableData[item.id] || {...item};
+    const editData = editableData[item.id.toString()] || {...item};
 
     const isChanged = Object.keys(editData).some(key => {
       const field = key as keyof Celebrity;
-      return editData[field] !== item[field];
+      return editData[field]?.toString() !== item[field]?.toString();
     });
 
     return (
       <View style={styles.bodyContainer}>
         <TouchableOpacity
-          onPress={() => setExpandedId(isExpanded ? null : item.id)}
-          activeOpacity={0.7}
-          style={styles.headerContainer}>
-          <View style={{flexDirection: 'row'}}>
+          onPress={() => {
+            // Disable all interactions if any item is being edited
+            if (editingId !== null) {
+              return;
+            }
+            if (isExpanded) {
+              setExpandedId(null);
+              setEditingId(null);
+            } else {
+              setExpandedId(item.id);
+            }
+          }}
+          activeOpacity={editingId !== null ? 1 : 0.7}
+          style={[
+            styles.headerContainer,
+            editingId !== null &&
+              editingId !== item.id && {
+                opacity: 0.5,
+                pointerEvents: 'none',
+              },
+          ]}>
+          <View
+            style={{flexDirection: 'row', alignItems: 'center', width: '70%'}}>
             <Image source={{uri: item.picture}} style={styles.imageContainer} />
-            <Text style={styles.headerText}>
-              {item.first} {item.last}
-            </Text>
+            {isEditing ? (
+              <View style={styles.nameInputContainer}>
+                <TextInput
+                  style={styles.nameInput}
+                  value={editData.first}
+                  onChangeText={text =>
+                    handleEditChange(item.id, 'first', text)
+                  }
+                  multiline={true}
+                  placeholder="First"
+                />
+                <TextInput
+                  style={styles.nameInput}
+                  value={editData.last}
+                  onChangeText={text => handleEditChange(item.id, 'last', text)}
+                  placeholder="Last"
+                  multiline={true}
+                />
+              </View>
+            ) : (
+              <Text style={styles.headerText}>
+                {item.first} {item.last}
+              </Text>
+            )}
           </View>
           <View>
             <MaterialIcons
@@ -185,10 +224,11 @@ const CelebrityList = () => {
                     onChangeText={text => {
                       handleEditChange(item.id, 'dob', text);
                     }}
+                    multiline={true}
                     keyboardType="numbers-and-punctuation"
                   />
                 ) : (
-                  <Text style={styles.value}>{age}</Text>
+                  <Text style={styles.value}>{age} years</Text>
                 )}
               </View>
               <View style={styles.infoColumn}>
@@ -197,6 +237,7 @@ const CelebrityList = () => {
                   <TextInput
                     style={styles.input}
                     value={editData.gender}
+                    multiline={true}
                     onChangeText={text =>
                       handleEditChange(item.id, 'gender', text)
                     }
@@ -211,6 +252,7 @@ const CelebrityList = () => {
                   <TextInput
                     style={styles.input}
                     value={editData.country}
+                    multiline={true}
                     onChangeText={text =>
                       handleEditChange(item.id, 'country', text)
                     }
@@ -260,7 +302,7 @@ const CelebrityList = () => {
                       type="AntDesign"
                       name="checkcircleo"
                       size={20}
-                      color={isChanged ? darkBlueColor : 'gray'}
+                      color={isChanged ? darkGreenColor : 'gray'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setEditingId(null)}>
@@ -268,7 +310,7 @@ const CelebrityList = () => {
                       type="AntDesign"
                       name="closecircleo"
                       size={20}
-                      color="gray"
+                      color={darkRedColor}
                     />
                   </TouchableOpacity>
                 </>
@@ -279,7 +321,7 @@ const CelebrityList = () => {
                       type="AntDesign"
                       name="edit"
                       size={20}
-                      color={darkGreenColor}
+                      color={lightBlueColor}
                     />
                   </TouchableOpacity>
                 )
@@ -315,6 +357,7 @@ const CelebrityList = () => {
         keyExtractor={item => item.id.toString()}
         style={{marginBottom: 20, marginTop: 20}}
         contentContainerStyle={{alignItems: 'center'}}
+        showsVerticalScrollIndicator={false}
       />
       <ValidationAlert
         visible={validationVisible}
@@ -342,24 +385,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: whiteBackgeoundColor,
     borderRadius: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 0.5,
     borderColor: lightGrayColor,
-    width: '90%',
-    marginVertical: SPACING.sm,
+    width: '97%',
+    //marginVertical: SPACING.sm,
   },
   icon: {
     marginRight: 10,
   },
   searchBar: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     color: blackColor,
   },
   headerText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '400',
     color: blackColor,
     padding: 10,
   },
@@ -374,7 +417,7 @@ const styles = StyleSheet.create({
     backgroundColor: whiteBackgeoundColor,
     margin: 10,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightGrayColor,
     width: '96%',
   },
@@ -422,19 +465,34 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: blackColor,
+    fontWeight: '500',
+    color: lightGrayColor,
     marginBottom: SPACING.xs,
   },
   value: {
     fontSize: 14,
     color: blackColor,
-    textAlign: 'center',
+    //textAlign: 'center',
   },
   description: {
     marginTop: SPACING.md,
     //width: '100%',
-    alignItems: 'center',
+    //alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+  },
+  nameInputContainer: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginLeft: SPACING.sm,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderRadius: SPACING.xs,
+    borderColor: darkGrayColor,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    width: 100,
+    textAlign: 'center',
   },
 });
 
