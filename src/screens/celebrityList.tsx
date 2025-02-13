@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -12,10 +13,17 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {
   blackColor,
+  darkBlueColor,
+  darkGrayColor,
+  darkGreenColor,
+  darkRedColor,
   lightGrayColor,
   whiteBackgeoundColor,
 } from '../assets/colors';
 import CelebritieJson from '../assets/jsonFiles/celebrities.json';
+import DeleteComponent from '../componants/deleteComponet';
+import Icon from '../components/Icon';
+import {GENDER_OPTIONS, SPACING} from '../constants/styles';
 import {calculateAge} from '../utils/helper';
 
 interface Celebrity {
@@ -35,12 +43,85 @@ const CelebrityList = () => {
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [selectedCelebrity, setSelectedCelebrity] = useState<Celebrity | null>(
+    null,
+  );
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editableData, setEditableData] = useState<{
+    [key: number]: Partial<Celebrity>;
+  }>({});
+
+  const handleEditChange = (
+    id: number,
+    field: keyof Celebrity,
+    value: string,
+  ) => {
+    setEditableData(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  const validateEdit = (data: Partial<Celebrity>) => {
+    if (!data.first?.trim() || !data.last?.trim()) return false;
+    if (!data.country?.trim() || !/^[a-zA-Z\s]*$/.test(data.country))
+      return false;
+    if (!data.description?.trim()) return false;
+    if (!GENDER_OPTIONS.includes(data.gender?.toLowerCase() || ''))
+      return false;
+
+    if (data.dob) {
+      const date = new Date(data.dob);
+      const today = new Date();
+      if (isNaN(date.getTime()) || date > today) return false;
+    }
+
+    return true;
+  };
+
+  const saveEdit = (id: number) => {
+    const newData = editableData[id];
+    if (!validateEdit(newData)) {
+      Alert.alert(
+        'Invalid Data',
+        'Please check all fields are filled correctly',
+      );
+      return;
+    }
+    setCelebrities(prevData =>
+      prevData.map(item => (item.id === id ? {...item, ...newData} : item)),
+    );
+    setEditingId(null);
+  };
+
+  const openDeleteModal = (celebrity: Celebrity) => {
+    setSelectedCelebrity(celebrity);
+    setModalVisible(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedCelebrity) {
+      setCelebrities(prev => prev.filter(c => c.id !== selectedCelebrity.id));
+    }
+    setModalVisible(false);
+  };
 
   const renderItem = ({item}: {item: Celebrity}) => {
     const isExpanded = expandedId === item.id;
     const isEditing = editingId === item.id;
     const age = calculateAge(item.dob);
     const isAdult = age >= 18;
+    const editData = editableData[item.id] || item;
+    const isChanged =
+      editData.first !== item.first ||
+      editData.last !== item.last ||
+      editData.gender !== item.gender ||
+      editData.country !== item.country ||
+      editData.description !== item.description;
+
     return (
       <View style={styles.bodyContainer}>
         <TouchableOpacity
@@ -63,31 +144,128 @@ const CelebrityList = () => {
           </View>
         </TouchableOpacity>
         {isExpanded && (
-          <View style={{marginTop: 15}}>
-            <View
-              style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <View style={{flexDirection: 'column'}}>
-                <Text>Age</Text>
-                <Text>{calculateAge(item.dob)}</Text>
+          <View style={{marginTop: 15, width: '100%'}}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoColumn}>
+                <Text style={styles.label}>Age</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={editData.dob}
+                    placeholder="YYYY-MM-DD"
+                    onChangeText={text => {
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
+                        handleEditChange(item.id, 'dob', text);
+                      }
+                    }}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                ) : (
+                  <Text style={styles.value}>{age}</Text>
+                )}
               </View>
-              <View style={{flexDirection: 'column'}}>
-                <Text>Gendere</Text>
-                <Text>{item.gender}</Text>
+              <View style={styles.infoColumn}>
+                <Text style={styles.label}>Gender</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={editData.gender}
+                    onChangeText={text =>
+                      handleEditChange(item.id, 'gender', text)
+                    }
+                  />
+                ) : (
+                  <Text style={styles.value}>{item.gender}</Text>
+                )}
               </View>
-              <View style={{flexDirection: 'column'}}>
-                <Text>Country</Text>
-                <Text>{item.country}</Text>
+              <View style={styles.infoColumn}>
+                <Text style={styles.label}>Country</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={editData.country}
+                    onChangeText={text =>
+                      handleEditChange(item.id, 'country', text)
+                    }
+                  />
+                ) : (
+                  <Text style={styles.value}>{item.country}</Text>
+                )}
               </View>
             </View>
-            <View>
-              <Text>Description</Text>
-              <Text>{item.description}</Text>
+
+            <View style={styles.description}>
+              <Text style={styles.label}>Description</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.descriptionInput}
+                  value={editData.description}
+                  multiline
+                  onChangeText={text =>
+                    handleEditChange(item.id, 'description', text)
+                  }
+                />
+              ) : (
+                <Text style={styles.value}>{item.description}</Text>
+              )}
+            </View>
+
+            <View style={styles.buttonContainer}>
+              {!isEditing && (
+                <TouchableOpacity onPress={() => openDeleteModal(item)}>
+                  <Icon
+                    type="AntDesign"
+                    name="delete"
+                    size={20}
+                    color={darkRedColor}
+                  />
+                </TouchableOpacity>
+              )}
+
+              {isEditing ? (
+                <>
+                  <TouchableOpacity
+                    disabled={!isChanged}
+                    onPress={() => saveEdit(item.id)}>
+                    <Icon
+                      type="AntDesign"
+                      name="checkcircleo"
+                      size={20}
+                      color={isChanged ? darkBlueColor : 'gray'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setEditingId(null)}>
+                    <Icon
+                      type="AntDesign"
+                      name="closecircleo"
+                      size={20}
+                      color="gray"
+                    />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                isAdult && (
+                  <TouchableOpacity onPress={() => setEditingId(item.id)}>
+                    <Icon
+                      type="AntDesign"
+                      name="edit"
+                      size={20}
+                      color={darkGreenColor}
+                    />
+                  </TouchableOpacity>
+                )
+              )}
             </View>
           </View>
         )}
       </View>
     );
   };
+
+  const filteredCelebrities = celebrities.filter(celebrity => {
+    const fullName = `${celebrity.first} ${celebrity.last}`.toLowerCase();
+    return fullName.includes(searchText.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
@@ -103,11 +281,16 @@ const CelebrityList = () => {
         />
       </View>
       <FlatList
-        data={celebrities}
+        data={filteredCelebrities}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.id.toString()}
         style={{marginBottom: 20, marginTop: 20}}
         contentContainerStyle={{alignItems: 'center'}}
+      />
+      <DeleteComponent
+        visible={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        onDelete={confirmDelete}
       />
     </View>
   );
@@ -124,11 +307,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: whiteBackgeoundColor,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderRadius: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderWidth: 1,
     borderColor: lightGrayColor,
+    width: '90%',
+    marginVertical: SPACING.sm,
   },
   icon: {
     marginRight: 10,
@@ -136,6 +321,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flex: 1,
     fontSize: 16,
+    color: blackColor,
   },
   headerText: {
     fontSize: 20,
@@ -164,6 +350,63 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 1,
     borderColor: lightGrayColor,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    width: '100%',
+  },
+  infoColumn: {
+    alignItems: 'center',
+    width: '30%',
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: SPACING.xs,
+    borderColor: darkGrayColor,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    width: '90%',
+    minWidth: 80,
+    marginHorizontal: SPACING.xs,
+    textAlign: 'center',
+  },
+  descriptionInput: {
+    borderWidth: 1,
+    borderRadius: SPACING.xs,
+    borderColor: darkGrayColor,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    minHeight: 100,
+    maxHeight: 200,
+    width: '95%',
+    textAlignVertical: 'top',
+    marginTop: SPACING.xs,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: blackColor,
+    marginBottom: SPACING.xs,
+  },
+  value: {
+    fontSize: 14,
+    color: blackColor,
+    textAlign: 'center',
+  },
+  description: {
+    marginTop: SPACING.md,
+    width: '100%',
+    alignItems: 'center',
   },
 });
 
