@@ -16,6 +16,7 @@ import {
   whiteBackgeoundColor,
 } from '../assets/colors';
 import CelebritieJson from '../assets/jsonFiles/celebrities.json';
+import {calculateAge} from '../utils/helper';
 
 interface Celebrity {
   id: number;
@@ -34,21 +35,6 @@ const CelebrityList = () => {
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
-
-  //Calulate age of celebrity if is an adult
-  const calculateAge = (dob: string): number => {
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
-    }
-    return age;
-  };
 
   const renderItem = ({item}: {item: Celebrity}) => {
     const isExpanded = expandedId === item.id;
