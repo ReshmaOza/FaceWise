@@ -58,40 +58,47 @@ npm run ios
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+# UI Design Explanation
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+You are a famous hacker who has access to a list of the world's most famous celebrities.
+You have to create a system where you can view and edit their details to hide their public presence.
 
-## Step 3: Modify your app
+Your mission if you choose to accept it, you have to:
 
-Now that you have successfully run the app, let's make changes!
+1. Create the user interface provided with the design provided
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+2. The page should have a search bar to search the list by celebrity name.
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+3. The user list item is an accordion,
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+   - when clicked on, it will cause all the other accordions to collapse and enlarge the one which was clicked.
+   - If clicked on the same one it will collapse.
+   - Manage the + and - icons in open or collapsed mode (collapsed = - | open = +)
 
-## Congratulations! :tada:
+4. Fetch the JSON file provided to fill the list of users. (NOTE - YOU CANNOT EDIT THE JSON FILE)
 
-You've successfully run and modified your React Native App. :partying_face:
+   - You have to calculate the age of the user based on the date of birth provided
+   - gender should be a dropdown (Male | Female | Transgender | Rather not say | Other)
+   - country is a text field
+   - Description is a text area
 
-### Now what?
+5. Provide buttons to edit or delete
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+   - edit mode will let you edit the details of the user in the exact place
+   - you can only edit the user if the user is an adult
+   - validations to be implemented where a user cannot
+     -- input text in the age field
+     -- input numbers in the nationality
+     -- keep anything empty
+   - when in edit mode you can either save or cancel
+     -- save button will be disabled by default and will enable only if the details have changed
+     -- save click will update the user's details
+     -- cancel will revert the details to their last known state
+     -- you cannot open another accordion while in edit mode
+   - delete mode should alert you if you actually want to delete the user
+     -- if yes - the user will be deleted
+     -- if no - do nothing
 
-# Troubleshooting
+6. Typescript is a plus
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+This message will self destruct in 5... 4... 3... 2... 1... NOT
