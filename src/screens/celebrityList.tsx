@@ -36,20 +36,19 @@ interface Celebrity {
   picture: string;
   country: string;
   description: string;
+  isEditing?: boolean;
 }
 
 const CelebrityList = () => {
-  const [celebrities, setCelebrities] = useState<Celebrity[]>(CelebritieJson);
-  const [editingId, setEditingId] = useState(null);
+  const [celebrities, setCelebrities] = useState<Celebrity[]>(
+    CelebritieJson.map(celeb => ({...celeb, isEditing: false})),
+  );
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState('');
   const [selectedCelebrity, setSelectedCelebrity] = useState<Celebrity | null>(
     null,
   );
   const [modalVisible, setModalVisible] = useState(false);
-  const [editableData, setEditableData] = useState<{
-    [key: string]: Partial<Celebrity>;
-  }>({});
   const [validationVisible, setValidationVisible] = useState(false);
   const [invalidFields, setInvalidFields] = useState<string[]>([]);
 
@@ -58,19 +57,72 @@ const CelebrityList = () => {
     field: keyof Celebrity,
     value: string,
   ) => {
-    setEditableData(prev => {
-      const originalItem = celebrities.find(c => c.id === id);
-      if (!originalItem) return prev;
+    setCelebrities(prev =>
+      prev.map(celebrity =>
+        celebrity.id === id ? {...celebrity, [field]: value} : celebrity,
+      ),
+    );
+  };
 
-      return {
-        ...prev,
-        [id.toString()]: {
-          ...originalItem,
-          ...prev[id.toString()],
-          [field]: value,
-        },
-      };
+  const startEditing = (id: number) => {
+    setCelebrities(prev =>
+      prev.map(celebrity =>
+        celebrity.id === id ? {...celebrity, isEditing: true} : celebrity,
+      ),
+    );
+  };
+
+  const cancelEditing = (id: number) => {
+    setCelebrities(prev =>
+      prev.map(celebrity => {
+        if (celebrity.id === id) {
+          const original = CelebritieJson.find(c => c.id === id);
+          return {...original!, isEditing: false};
+        }
+        return celebrity;
+      }),
+    );
+  };
+
+  const saveEdit = (id: number) => {
+    const celebrity = celebrities.find(c => c.id === id);
+    if (!celebrity) return;
+
+    const original = CelebritieJson.find(c => c.id === id);
+    const changedFields = Object.keys(celebrity).filter(key => {
+      const field = key as keyof Celebrity;
+      return celebrity[field] !== original?.[field] && field !== 'isEditing';
     });
+
+    const invalid = changedFields.filter(
+      field =>
+        !validateField(
+          field as keyof Celebrity,
+          celebrity[field as keyof Celebrity],
+        ),
+    );
+
+    if (invalid.length > 0) {
+      setInvalidFields(invalid);
+      setValidationVisible(true);
+      return;
+    }
+
+    setCelebrities(prev =>
+      prev.map(item => (item.id === id ? {...item, isEditing: false} : item)),
+    );
+  };
+
+  const openDeleteModal = (celebrity: Celebrity) => {
+    setSelectedCelebrity(celebrity);
+    setModalVisible(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedCelebrity) {
+      setCelebrities(prev => prev.filter(c => c.id !== selectedCelebrity.id));
+    }
+    setModalVisible(false);
   };
 
   const validateField = (field: keyof Celebrity, value: string | undefined) => {
@@ -97,91 +149,42 @@ const CelebrityList = () => {
     }
   };
 
-  const saveEdit = (id: number) => {
-    const newData = editableData[id.toString()];
-    if (!newData) return;
-
-    const changedFields = Object.keys(newData).filter(key => {
-      const field = key as keyof Celebrity;
-      return newData[field] !== celebrities.find(c => c.id === id)?.[field];
-    });
-
-    const invalid = changedFields.filter(
-      field =>
-        !validateField(
-          field as keyof Celebrity,
-          newData[field as keyof Celebrity],
-        ),
-    );
-
-    if (invalid.length > 0) {
-      setInvalidFields(invalid);
-      setValidationVisible(true);
-      return;
-    }
-
-    setCelebrities(prevData =>
-      prevData.map(item => (item.id === id ? {...item, ...newData} : item)),
-    );
-    setEditingId(null);
-  };
-
-  const openDeleteModal = (celebrity: Celebrity) => {
-    setSelectedCelebrity(celebrity);
-    setModalVisible(true);
-  };
-
-  const confirmDelete = () => {
-    if (selectedCelebrity) {
-      setCelebrities(prev => prev.filter(c => c.id !== selectedCelebrity.id));
-    }
-    setModalVisible(false);
-  };
-
   const renderItem = ({item}: {item: Celebrity}) => {
     const isExpanded = expandedId === item.id;
-    const isEditing = editingId === item.id;
     const age = calculateAge(item.dob);
     const isAdult = age >= 18;
-    const editData = editableData[item.id.toString()] || {...item};
 
-    const isChanged = Object.keys(editData).some(key => {
+    const original = CelebritieJson.find(c => c.id === item.id);
+    const isChanged = Object.keys(item).some(key => {
       const field = key as keyof Celebrity;
-      return editData[field]?.toString() !== item[field]?.toString();
+      return item[field] !== original?.[field] && field !== 'isEditing';
     });
 
     return (
       <View style={styles.bodyContainer}>
         <TouchableOpacity
           onPress={() => {
-            // Disable all interactions if any item is being edited
-            if (editingId !== null) {
+            if (celebrities.some(c => c.isEditing)) {
               return;
             }
-            if (isExpanded) {
-              setExpandedId(null);
-              setEditingId(null);
-            } else {
-              setExpandedId(item.id);
-            }
+            setExpandedId(isExpanded ? null : item.id);
           }}
-          activeOpacity={editingId !== null ? 1 : 0.7}
+          activeOpacity={celebrities.some(c => c.isEditing) ? 1 : 0.7}
           style={[
             styles.headerContainer,
-            editingId !== null &&
-              editingId !== item.id && {
-                opacity: 0.5,
-                pointerEvents: 'none',
-              },
+            celebrities.some(c => c.isEditing && c.id !== item.id) && {
+              opacity: 0.5,
+              pointerEvents: 'none',
+            },
           ]}>
           <View
             style={{flexDirection: 'row', alignItems: 'center', width: '70%'}}>
             <Image source={{uri: item.picture}} style={styles.imageContainer} />
-            {isEditing ? (
+            {item.isEditing ? (
               <View style={styles.nameInputContainer}>
                 <TextInput
                   style={styles.nameInput}
-                  value={editData.first}
+                  value={item.first}
                   onChangeText={text =>
                     handleEditChange(item.id, 'first', text)
                   }
@@ -190,7 +193,7 @@ const CelebrityList = () => {
                 />
                 <TextInput
                   style={styles.nameInput}
-                  value={editData.last}
+                  value={item.last}
                   onChangeText={text => handleEditChange(item.id, 'last', text)}
                   placeholder="Last"
                   multiline={true}
@@ -216,10 +219,10 @@ const CelebrityList = () => {
             <View style={styles.infoRow}>
               <View style={styles.infoColumn}>
                 <Text style={styles.label}>Age</Text>
-                {isEditing ? (
+                {item.isEditing ? (
                   <TextInput
                     style={styles.input}
-                    value={editData.dob}
+                    value={item.dob}
                     placeholder="YYYY-MM-DD"
                     onChangeText={text => {
                       handleEditChange(item.id, 'dob', text);
@@ -233,10 +236,10 @@ const CelebrityList = () => {
               </View>
               <View style={styles.infoColumn}>
                 <Text style={styles.label}>Gender</Text>
-                {isEditing ? (
+                {item.isEditing ? (
                   <TextInput
                     style={styles.input}
-                    value={editData.gender}
+                    value={item.gender}
                     multiline={true}
                     onChangeText={text =>
                       handleEditChange(item.id, 'gender', text)
@@ -248,10 +251,10 @@ const CelebrityList = () => {
               </View>
               <View style={styles.infoColumn}>
                 <Text style={styles.label}>Country</Text>
-                {isEditing ? (
+                {item.isEditing ? (
                   <TextInput
                     style={styles.input}
-                    value={editData.country}
+                    value={item.country}
                     multiline={true}
                     onChangeText={text =>
                       handleEditChange(item.id, 'country', text)
@@ -265,10 +268,10 @@ const CelebrityList = () => {
 
             <View style={styles.description}>
               <Text style={styles.label}>Description</Text>
-              {isEditing ? (
+              {item.isEditing ? (
                 <TextInput
                   style={styles.descriptionInput}
-                  value={editData.description}
+                  value={item.description}
                   multiline={true}
                   numberOfLines={4}
                   textAlignVertical="top"
@@ -282,7 +285,7 @@ const CelebrityList = () => {
             </View>
 
             <View style={styles.buttonContainer}>
-              {!isEditing && (
+              {!item.isEditing && (
                 <TouchableOpacity onPress={() => openDeleteModal(item)}>
                   <Icon
                     type="AntDesign"
@@ -293,7 +296,7 @@ const CelebrityList = () => {
                 </TouchableOpacity>
               )}
 
-              {isEditing ? (
+              {item.isEditing ? (
                 <>
                   <TouchableOpacity
                     disabled={!isChanged}
@@ -305,7 +308,7 @@ const CelebrityList = () => {
                       color={isChanged ? darkGreenColor : 'gray'}
                     />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setEditingId(null)}>
+                  <TouchableOpacity onPress={() => cancelEditing(item.id)}>
                     <Icon
                       type="AntDesign"
                       name="closecircleo"
@@ -316,7 +319,7 @@ const CelebrityList = () => {
                 </>
               ) : (
                 isAdult && (
-                  <TouchableOpacity onPress={() => setEditingId(item.id)}>
+                  <TouchableOpacity onPress={() => startEditing(item.id)}>
                     <Icon
                       type="AntDesign"
                       name="edit"
@@ -340,7 +343,6 @@ const CelebrityList = () => {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar with Icon */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="gray" style={styles.icon} />
         <TextInput
@@ -390,7 +392,6 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: lightGrayColor,
     width: '97%',
-    //marginVertical: SPACING.sm,
   },
   icon: {
     marginRight: 10,
@@ -472,12 +473,9 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 14,
     color: blackColor,
-    //textAlign: 'center',
   },
   description: {
     marginTop: SPACING.md,
-    //width: '100%',
-    //alignItems: 'center',
     paddingHorizontal: SPACING.sm,
   },
   nameInputContainer: {
